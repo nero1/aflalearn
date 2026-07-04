@@ -4,6 +4,7 @@
 const USERS_KEY = "aflalearn_users_v1";
 const CURRENT_USER_KEY = "aflalearn_current_user_v1";
 const THEME_KEY = "aflalearn_theme_v1";
+const THEME_FAMILY_KEY = "aflalearn_theme_family_v1";
 function progressKey(user) { return "aflalearn_progress_v1_" + user; }
 
 /* ================= UTIL ================= */
@@ -97,10 +98,15 @@ function overallStats() {
 }
 
 /* ================= THEME ================= */
+const THEME_FAMILIES = ["modern", "legacy"];
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
   const icon = document.getElementById("themeIcon");
   if (icon) icon.textContent = t === "dark" ? "☀" : "☽";
+}
+function applyThemeFamily(f) {
+  if (THEME_FAMILIES.indexOf(f) === -1) f = "modern";
+  document.documentElement.setAttribute("data-theme-family", f);
 }
 function toggleTheme() {
   const cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
@@ -108,12 +114,17 @@ function toggleTheme() {
   applyTheme(next);
   safeSet(THEME_KEY, next);
 }
+function setThemeFamily(f) {
+  applyThemeFamily(f);
+  safeSet(THEME_FAMILY_KEY, f);
+}
 function initTheme() {
   let t = "light";
   const saved = safeGet(THEME_KEY);
   if (saved) t = saved;
   else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) t = "dark";
   applyTheme(t);
+  applyThemeFamily(safeGet(THEME_FAMILY_KEY) || "modern");
 }
 
 /* ================= ICON LIBRARY ================= */
@@ -680,6 +691,16 @@ function renderSettings() {
         <h2>Display</h2>
         <div class="settings-row">
           <div>
+            <div style="font-weight:600;">Theme</div>
+            <div style="font-size:13px;color:var(--ink-faint);">Choose the look of AflaLearn</div>
+          </div>
+          <div class="theme-picker" id="themePicker">
+            <button class="theme-option" data-theme-family="modern">Modern</button>
+            <button class="theme-option" data-theme-family="legacy">Legacy</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div>
             <div style="font-weight:600;">Dark mode</div>
             <div style="font-size:13px;color:var(--ink-faint);">Switch between light and dark appearance</div>
           </div>
@@ -711,6 +732,22 @@ function bindSettingsEvents(pendingTab) {
   });
   const toggle = document.getElementById("toggleDark");
   if (toggle) toggle.addEventListener("click", toggleTheme);
+  const picker = document.getElementById("themePicker");
+  if (picker) {
+    const syncPicker = () => {
+      const active = document.documentElement.getAttribute("data-theme-family") || "modern";
+      picker.querySelectorAll(".theme-option").forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-theme-family") === active);
+      });
+    };
+    picker.querySelectorAll(".theme-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setThemeFamily(btn.getAttribute("data-theme-family"));
+        syncPicker();
+      });
+    });
+    syncPicker();
+  }
   const logoutBtn = document.getElementById("settingsLogout");
   if (logoutBtn) logoutBtn.addEventListener("click", () => { logoutUser(); navigate("#/"); renderLogin(); });
   const resetBtn = document.getElementById("settingsReset");
