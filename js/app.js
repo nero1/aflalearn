@@ -23,7 +23,7 @@ function getUsers() {
   try { return JSON.parse(safeGet(USERS_KEY) || "[]"); } catch (e) { return []; }
 }
 function saveUsers(list) { safeSet(USERS_KEY, JSON.stringify(list)); }
-function getCurrentUser() { return anonymousSession ? "Guest" : safeGet(CURRENT_USER_KEY); }
+function getCurrentUser() { return guestSession ? "Guest" : safeGet(CURRENT_USER_KEY); }
 function setCurrentUser(name) { safeSet(CURRENT_USER_KEY, name); }
 function clearCurrentUser() { safeRemove(CURRENT_USER_KEY); }
 
@@ -42,24 +42,24 @@ function createOrSelectUser(name) {
 
 function logoutUser() {
   clearCurrentUser();
-  anonymousSession = false;
+  guestSession = false;
   progressLoadedForSession = false;
   renderLogin();
 }
 
-/* ================= ANONYMOUS MODE ================= */
-/* Anonymous sessions live only in memory: nothing is written to localStorage,
+/* ================= GUEST MODE ================= */
+/* Guest sessions live only in memory: nothing is written to localStorage,
    so progress and the session itself disappear on refresh or logout. */
-let anonymousSession = false;
+let guestSession = false;
 let progressLoadedForSession = false;
-function enterAnonymous() {
-  anonymousSession = true;
+function enterGuest() {
+  guestSession = true;
   progressLoadedForSession = false;
   navigate("#/");
   render();
 }
-function exitAnonymous() {
-  anonymousSession = false;
+function exitGuest() {
+  guestSession = false;
   progressLoadedForSession = false;
   renderLogin();
 }
@@ -76,7 +76,7 @@ function emptyProgress() {
 }
 let progress = {};
 function loadProgress() {
-  if (anonymousSession) {
+  if (guestSession) {
     if (!progressLoadedForSession) { progress = emptyProgress(); progressLoadedForSession = true; }
     return;
   }
@@ -91,14 +91,14 @@ function loadProgress() {
   } catch (e) { progress = emptyProgress(); }
 }
 function saveProgress() {
-  if (anonymousSession) { refreshProgressUI(); return; }
+  if (guestSession) { refreshProgressUI(); return; }
   const user = getCurrentUser();
   if (!user) return;
   safeSet(progressKey(user), JSON.stringify(progress));
   refreshProgressUI();
 }
 function resetProgress() {
-  if (!anonymousSession && !getCurrentUser()) return;
+  if (!guestSession && !getCurrentUser()) return;
   progress = emptyProgress();
   saveProgress();
 }
@@ -838,13 +838,13 @@ function renderSettings() {
         <h2>Built by</h2>
         <p>AflaLearn was built by <strong>NG44</strong>.</p>
         <h2>Trying it out without an account</h2>
-        <p>From the login screen you can choose <strong>Enter as Anonymous</strong> to browse as a guest, with no username required. Guest mode is meant for demoing the course: nothing you do in it is saved, and it resets the moment you leave or refresh.</p>
+        <p>From the login screen you can choose <strong>Enter as Guest</strong> to browse as a guest, with no username required. Guest mode is meant for demoing the course: nothing you do in it is saved, and it resets the moment you leave or refresh.</p>
       </div>
 
       <div class="settings-pane" id="settings-howto">
         <h2>How to use this course</h2>
         <ol class="steps-list">
-          <li><strong>Create or select a username on the login screen.</strong> No password, no email, just a name to keep your progress separate from anyone else using the same device. Alternatively, choose <strong>Enter as Anonymous</strong> to try the course as a guest, with no progress saved.</li>
+          <li><strong>Create or select a username on the login screen.</strong> No password, no email, just a name to keep your progress separate from anyone else using the same device. Alternatively, choose <strong>Enter as Guest</strong> to try the course as a guest, with no progress saved.</li>
           <li><strong>Pick a topic from the home screen.</strong> Topics are grouped by theme; there's no required order, though the topics roughly build on each other. Click the AflaLearn name or logo in the top left at any time to jump back to the Topics screen.</li>
           <li><strong>Open a module and read through it.</strong> Each one is short on purpose: the idea, why it matters, and what to actually do about it.</li>
           <li><strong>Flip through the flashcards.</strong> Tap or click a card to flip it and check the answer, then use the arrows to move on.</li>
@@ -875,7 +875,7 @@ function renderSettings() {
           <div class="toggle" id="toggleDark"></div>
         </div>
         <h2>Account</h2>
-        ${anonymousSession ? `
+        ${guestSession ? `
         <div class="settings-row">
           <div>
             <div style="font-weight:600;">Browsing as a guest</div>
@@ -894,9 +894,9 @@ function renderSettings() {
         <div class="settings-row">
           <div>
             <div style="font-weight:600;">Reset all progress</div>
-            <div style="font-size:13px;color:var(--ink-faint);">${anonymousSession ? "Not applicable in guest mode — nothing is saved to reset." : "Clears saved quiz scores and completion badges for this username, on this device"}</div>
+            <div style="font-size:13px;color:var(--ink-faint);">${guestSession ? "Not applicable in guest mode — nothing is saved to reset." : "Clears saved quiz scores and completion badges for this username, on this device"}</div>
           </div>
-          <button class="danger-btn" id="settingsReset" ${anonymousSession ? "disabled" : ""}>Reset progress</button>
+          <button class="danger-btn" id="settingsReset" ${guestSession ? "disabled" : ""}>Reset progress</button>
         </div>
       </div>
     </div>`;
@@ -915,11 +915,11 @@ function bindSettingsEvents(pendingTab) {
   }
   const logoutBtn = document.getElementById("settingsLogout");
   if (logoutBtn) logoutBtn.addEventListener("click", () => {
-    if (anonymousSession) { exitAnonymous(); return; }
+    if (guestSession) { exitGuest(); return; }
     logoutUser(); navigate("#/"); renderLogin();
   });
   const resetBtn = document.getElementById("settingsReset");
-  if (resetBtn && !anonymousSession) resetBtn.addEventListener("click", () => {
+  if (resetBtn && !guestSession) resetBtn.addEventListener("click", () => {
     if (confirm("This clears all quiz scores and completion badges for this username on this device. Continue?")) {
       resetProgress();
       render();
@@ -971,15 +971,15 @@ function render() {
   else if (route.view === "module") html = renderModule(route.topicId, route.moduleId);
   else if (route.view === "settings") html = renderSettings();
 
-  if (anonymousSession) {
-    html = `<div class="anon-banner">Browsing as a guest — nothing you do here is saved. <button id="anonBannerExit">Create a username</button> to keep your progress.</div>` + html;
+  if (guestSession) {
+    html = `<div class="guest-banner">Browsing as a guest — nothing you do here is saved. <button id="guestBannerExit">Create a username</button> to keep your progress.</div>` + html;
   }
 
   app.innerHTML = html;
   updateHeaderNav(route);
   bindNavButtons(app);
-  const anonExit = document.getElementById("anonBannerExit");
-  if (anonExit) anonExit.addEventListener("click", exitAnonymous);
+  const guestExit = document.getElementById("guestBannerExit");
+  if (guestExit) guestExit.addEventListener("click", exitGuest);
 
   if (route.view === "module") {
     buildFlashcards(route.moduleId);
@@ -1019,29 +1019,51 @@ function renderLogin() {
     body.innerHTML = `
       ${users.length ? `
         <div style="font-size:13px;color:var(--ink-soft);margin-bottom:8px;">Select your username to load your progress</div>
-        <div class="user-list">${users.map((u) => `<div class="user-pill" data-user="${escapeHtml(u)}"><span class="avatar">${escapeHtml(initials(u))}</span>${escapeHtml(u)}</div>`).join("")}</div>
+        <div class="user-select" id="userSelect">
+          <button type="button" class="user-select-trigger" id="userSelectTrigger" aria-haspopup="listbox" aria-expanded="false">
+            <span class="user-select-placeholder">Choose a username&hellip;</span>
+            <span class="user-select-arrow">&#9662;</span>
+          </button>
+          <ul class="user-select-menu" id="userSelectMenu" role="listbox">
+            ${users.map((u) => `<li class="user-select-option" role="option" data-user="${escapeHtml(u)}"><span class="avatar">${escapeHtml(initials(u))}</span>${escapeHtml(u)}</li>`).join("")}
+          </ul>
+        </div>
         <div class="divider">or</div>` : ""}
       <div style="font-size:13px;color:var(--ink-soft);margin:${users.length ? "14px" : "0"} 0 4px;">Create a new username</div>
       <div class="field-row">
         <input type="text" id="newUserInput" placeholder="e.g. amara" maxlength="24" autocomplete="off"/>
         <button class="btn" id="newUserBtn">Continue</button>
       </div>
-      <div class="anon-line"><button id="anonBtn" class="link-btn">Enter as Anonymous</button></div>
-      <div class="anon-notice">Guest mode skips creating a username. It's meant for trying out the course: your progress won't be saved.</div>`;
-    document.querySelectorAll(".user-pill").forEach((p) => {
-      p.addEventListener("click", () => {
-        createOrSelectUser(p.getAttribute("data-user"));
-        navigate("#/");
-        render();
+      <div class="guest-line"><button id="guestBtn" class="link-btn">Enter as Guest</button></div>
+      <div class="guest-notice">Guest mode skips creating a username. It's meant for trying out the course: your progress won't be saved.</div>`;
+    const userSelect = document.getElementById("userSelect");
+    if (userSelect) {
+      const trigger = document.getElementById("userSelectTrigger");
+      const menu = document.getElementById("userSelectMenu");
+      trigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        userSelect.classList.toggle("open");
+        trigger.setAttribute("aria-expanded", userSelect.classList.contains("open") ? "true" : "false");
       });
-    });
+      document.addEventListener("click", () => {
+        userSelect.classList.remove("open");
+        trigger.setAttribute("aria-expanded", "false");
+      });
+      menu.querySelectorAll(".user-select-option").forEach((opt) => {
+        opt.addEventListener("click", () => {
+          createOrSelectUser(opt.getAttribute("data-user"));
+          navigate("#/");
+          render();
+        });
+      });
+    }
     const input = document.getElementById("newUserInput");
     const go = () => {
       if (createOrSelectUser(input.value)) { navigate("#/"); render(); }
     };
     document.getElementById("newUserBtn").addEventListener("click", go);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
-    document.getElementById("anonBtn").addEventListener("click", enterAnonymous);
+    document.getElementById("guestBtn").addEventListener("click", enterGuest);
   }
 
   const stillCurrent = getCurrentUser();
@@ -1051,15 +1073,15 @@ function renderLogin() {
         <div class="who"><span class="emoji">👋</span> You're logged in as ${escapeHtml(stillCurrent)}</div>
         <button class="btn full" id="continueBtn">Continue</button>
         <div class="switch-line">Not ${escapeHtml(stillCurrent)}? <button id="switchUserBtn">Log out and log in with your username</button></div>
-        <div class="anon-line"><button id="anonBtn" class="link-btn">Enter as Anonymous</button></div>
-        <div class="anon-notice">Guest mode skips creating a username. It's meant for trying out the course: your progress won't be saved.</div>
+        <div class="guest-line"><button id="guestBtn" class="link-btn">Enter as Guest</button></div>
+        <div class="guest-notice">Guest mode skips creating a username. It's meant for trying out the course: your progress won't be saved.</div>
       </div>`;
     document.getElementById("continueBtn").addEventListener("click", () => { navigate("#/"); render(); });
     document.getElementById("switchUserBtn").addEventListener("click", () => {
       clearCurrentUser();
       renderFullForm();
     });
-    document.getElementById("anonBtn").addEventListener("click", enterAnonymous);
+    document.getElementById("guestBtn").addEventListener("click", enterGuest);
   } else {
     renderFullForm();
   }
@@ -1067,7 +1089,7 @@ function renderLogin() {
 
 /* ================= INIT ================= */
 function initHeader() {
-  document.querySelectorAll(".navlink").forEach((btn) => {
+  document.querySelectorAll(".navlink[data-view]").forEach((btn) => {
     btn.addEventListener("click", () => navigate("#/" + (btn.getAttribute("data-view") === "home" ? "" : btn.getAttribute("data-view"))));
   });
   const brand = document.querySelector(".brand");
@@ -1075,6 +1097,12 @@ function initHeader() {
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   document.getElementById("hamburgerBtn").addEventListener("click", () => {
     document.getElementById("mobileNav").classList.toggle("open");
+  });
+  document.getElementById("mobileLogoutBtn").addEventListener("click", () => {
+    if (guestSession) { exitGuest(); return; }
+    logoutUser();
+    navigate("#/");
+    renderLogin();
   });
   const chip = document.getElementById("userChip");
   if (chip) chip.addEventListener("click", () => navigate("#/settings"));
