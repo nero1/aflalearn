@@ -141,6 +141,9 @@ function setThemeFamily(f) {
   applyThemeFamily(f);
   safeSet(THEME_FAMILY_KEY, f);
 }
+function isCourseTheme() {
+  return document.documentElement.getAttribute("data-theme-family") !== "legacy";
+}
 function initTheme() {
   let t = "light";
   const saved = safeGet(THEME_KEY);
@@ -351,8 +354,8 @@ function updateHeaderNav(route) {
   }
 }
 
-/* ================= HOME VIEW ================= */
-function renderHome() {
+/* ================= HOME VIEW (legacy) ================= */
+function renderHomeLegacy() {
   const stats = overallStats();
   const pct = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
   let cards = "";
@@ -403,8 +406,93 @@ function renderHome() {
     </div>`;
 }
 
-/* ================= TOPIC VIEW ================= */
-function renderTopic(topicId) {
+/* ================= HOME VIEW (course/modern) ================= */
+function findContinueTarget() {
+  for (const t of TOPICS) {
+    for (const m of t.modules) {
+      const p = progress[m.id] || {};
+      if (!(p.quizDone || p.quizSkipped)) return { topic: t, module: m };
+    }
+  }
+  return null;
+}
+function renderHomeCourse() {
+  const stats = overallStats();
+  const pct = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
+  const started = stats.done > 0;
+  const continueTarget = findContinueTarget();
+  let rows = "";
+  TOPICS.forEach((t, i) => {
+    const ts = topicStats(t);
+    const tpct = ts.total ? Math.round((ts.done / ts.total) * 100) : 0;
+    const complete = ts.total > 0 && ts.done === ts.total;
+    const statusClass = complete ? "complete" : ts.done > 0 ? "in-progress" : "not-started";
+    const statusLabel = complete ? "Complete" : ts.done > 0 ? "In progress" : "Not started";
+    rows += `
+      <button class="outline-row${complete ? " is-complete" : ""}" data-nav="#/topic/${t.id}">
+        <div class="outline-num">${complete ? "✓" : String(i + 1).padStart(2, "0")}</div>
+        <div class="outline-body">
+          <div class="outline-title-row">
+            <h3>${escapeHtml(t.title)}</h3>
+            <span class="status-badge ${statusClass}">${statusLabel}</span>
+          </div>
+          <p>${escapeHtml(t.summary)}</p>
+          <div class="outline-progress">
+            <div class="progress-bar"><div class="progress-bar-fill" style="width:${tpct}%"></div></div>
+            <span class="outline-count">${ts.done}/${ts.total} modules</span>
+          </div>
+        </div>
+        <div class="outline-chevron">→</div>
+      </button>`;
+  });
+  return `
+    <div class="wrap">
+      <div class="hero">
+        <div class="hero-text">
+          <span class="eyebrow"><span class="emoji">🌽</span> A plain-language course on food safety</span>
+          <h1>Understand aflatoxin. Protect what you grow.</h1>
+          <p>AflaLearn is a free, self-paced course on aflatoxin: what it is, why it matters for health and income, and what actually works to prevent it, with a close look at collaborative efforts like FS4Africa. No jargon, no sign-up beyond a username, and your progress stays on this device.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn" data-nav="#/topic/${TOPICS[0].id}">Start with Topic 1 <span class="emoji">→</span></button>
+            <button class="btn ghost" data-nav="#/settings" data-settings-tab="howto">How this works</button>
+          </div>
+        </div>
+        <div class="hero-svg">${iconWrap("kernel", 300)}</div>
+      </div>
+
+      <div class="course-progress-panel">
+        <div class="cpp-top">
+          <div>
+            <div class="cpp-label">Your course progress</div>
+            <div class="cpp-pct">${pct}%</div>
+          </div>
+          <div class="cpp-counters">
+            <div class="cpp-counter"><span class="n">${stats.done}/${stats.total}</span><span class="l">Modules complete</span></div>
+            <div class="cpp-counter"><span class="n">${TOPICS.length}</span><span class="l">Topics</span></div>
+          </div>
+        </div>
+        <div class="progress-bar lg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+
+      ${started && continueTarget ? `
+      <div class="continue-bar" data-nav="#/topic/${continueTarget.topic.id}/module/${continueTarget.module.id}">
+        <div>
+          <div class="cb-label">Continue where you left off</div>
+          <div class="cb-title">${escapeHtml(continueTarget.module.title)}</div>
+        </div>
+        <button class="btn">Resume <span class="emoji">→</span></button>
+      </div>` : ""}
+
+      <div class="section-head">
+        <h2 style="font-size:22px;">Course outline</h2>
+        <span class="mono" style="font-size:12px;color:var(--ink-faint);">progress is saved on this device, for this username</span>
+      </div>
+      <div class="course-outline">${rows}</div>
+    </div>`;
+}
+
+/* ================= TOPIC VIEW (legacy) ================= */
+function renderTopicLegacy(topicId) {
   const topic = TOPIC_INDEX[topicId];
   if (!topic) { navigate("#/"); return ""; }
   let cards = "";
@@ -442,6 +530,50 @@ function renderTopic(topicId) {
     </div>`;
 }
 
+/* ================= TOPIC VIEW (course/modern) ================= */
+function renderTopicCourse(topicId) {
+  const topic = TOPIC_INDEX[topicId];
+  if (!topic) { navigate("#/"); return ""; }
+  let rows = "";
+  topic.modules.forEach((m, i) => {
+    const p = progress[m.id] || {};
+    const done = p.quizDone || p.quizSkipped;
+    const scored = p.quizDone && p.best;
+    rows += `
+      <button class="module-row${done ? " is-done" : ""}" data-nav="#/topic/${topic.id}/module/${m.id}">
+        <div class="module-row-status">${done ? "✓" : i + 1}</div>
+        <div class="module-row-body">
+          <div class="module-row-title">${escapeHtml(m.title)}</div>
+          <div class="module-row-lede">${escapeHtml(m.lede)}</div>
+        </div>
+        <div class="module-row-meta">
+          ${scored ? `<span class="module-score">${p.best}%</span>` : ""}
+          <span class="chevron">→</span>
+        </div>
+      </button>`;
+  });
+  const ts = topicStats(topic);
+  const tpct = ts.total ? Math.round((ts.done / ts.total) * 100) : 0;
+  return `
+    <div class="wrap">
+      <button class="back-link" data-nav="#/"><span class="emoji">←</span> Back to all topics</button>
+      <div class="crumbs">Topics / ${escapeHtml(topic.title)}</div>
+      <div class="module-hero">
+        <div class="module-hero-text">
+          <span class="eyebrow">${escapeHtml(topic.tags.join(" · "))}</span>
+          <h1>${escapeHtml(topic.title)}</h1>
+          <p class="lede">${escapeHtml(topic.summary)}</p>
+          <div class="card-progress" style="max-width:320px;margin-top:16px;">
+            <div class="lbl">${ts.done} of ${ts.total} modules complete</div>
+            <div class="progress-bar"><div class="progress-bar-fill" style="width:${tpct}%"></div></div>
+          </div>
+        </div>
+        <div class="module-hero-svg">${iconWrap(topic.icon, 200)}</div>
+      </div>
+      <div class="module-list">${rows}</div>
+    </div>`;
+}
+
 /* ================= MODULE VIEW ================= */
 function renderModuleContentBlocks(module) {
   return module.sections.map((s, i) => {
@@ -469,10 +601,20 @@ function renderModule(topicId, moduleId) {
   markRead(moduleId);
   const prevModule = topic.modules[position - 1];
   const nextModule = topic.modules[position + 1];
+  let seqNav = "";
+  if (isCourseTheme()) {
+    seqNav = `<div class="seq-nav">${topic.modules.map((m, i) => {
+      const p = progress[m.id] || {};
+      const done = p.quizDone || p.quizSkipped;
+      const isCurrent = m.id === module.id;
+      return `<button class="seq-dot${isCurrent ? " current" : ""}${done && !isCurrent ? " done" : ""}" data-nav="#/topic/${topic.id}/module/${m.id}" title="${escapeHtml(m.title)}">${done ? "✓" : i + 1}</button>`;
+    }).join("")}</div>`;
+  }
   return `
     <div class="wrap">
       <button class="back-link" data-nav="#/topic/${topic.id}"><span class="emoji">←</span> Back to ${escapeHtml(topic.title)}</button>
       <div class="crumbs">Topics / ${escapeHtml(topic.title)} / ${escapeHtml(module.title)}</div>
+      ${seqNav}
       <div class="module-hero">
         <div class="module-hero-text">
           <span class="eyebrow"><span class="emoji">📖</span> Module ${position + 1} of ${total}</span>
@@ -720,10 +862,10 @@ function renderSettings() {
             <div style="font-weight:600;">Theme</div>
             <div style="font-size:13px;color:var(--ink-faint);">Choose the look of AflaLearn</div>
           </div>
-          <div class="theme-picker" id="themePicker">
-            <button class="theme-option" data-theme-family="modern">Modern</button>
-            <button class="theme-option" data-theme-family="legacy">Legacy</button>
-          </div>
+          <select class="theme-select" id="themePicker">
+            <option value="modern">Modern</option>
+            <option value="legacy">Legacy</option>
+          </select>
         </div>
         <div class="settings-row">
           <div>
@@ -768,19 +910,8 @@ function bindSettingsEvents(pendingTab) {
   if (toggle) toggle.addEventListener("click", toggleTheme);
   const picker = document.getElementById("themePicker");
   if (picker) {
-    const syncPicker = () => {
-      const active = document.documentElement.getAttribute("data-theme-family") || "modern";
-      picker.querySelectorAll(".theme-option").forEach((btn) => {
-        btn.classList.toggle("active", btn.getAttribute("data-theme-family") === active);
-      });
-    };
-    picker.querySelectorAll(".theme-option").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        setThemeFamily(btn.getAttribute("data-theme-family"));
-        syncPicker();
-      });
-    });
-    syncPicker();
+    picker.value = document.documentElement.getAttribute("data-theme-family") || "modern";
+    picker.addEventListener("change", () => setThemeFamily(picker.value));
   }
   const logoutBtn = document.getElementById("settingsLogout");
   if (logoutBtn) logoutBtn.addEventListener("click", () => {
@@ -833,9 +964,10 @@ function render() {
   document.querySelector("main").style.display = "";
   app.style.display = "";
 
+  const course = isCourseTheme();
   let html = "";
-  if (route.view === "home") html = renderHome();
-  else if (route.view === "topic") html = renderTopic(route.topicId);
+  if (route.view === "home") html = course ? renderHomeCourse() : renderHomeLegacy();
+  else if (route.view === "topic") html = course ? renderTopicCourse(route.topicId) : renderTopicLegacy(route.topicId);
   else if (route.view === "module") html = renderModule(route.topicId, route.moduleId);
   else if (route.view === "settings") html = renderSettings();
 
