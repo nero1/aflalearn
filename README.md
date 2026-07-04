@@ -32,4 +32,4 @@ This is a fully static site with hash-based routing, so no server rewrites or bu
 
 ## Notes on content
 
-Course content is written to be conservative and checkable: general aflatoxin science reflects established public food safety literature (WHO, FAO, IARC, Codex Alimentarius), and FS4Africa-specific details are drawn from FS4Africa's own published Applicants' Guide and public project record. AflaLearn is an independent educational resource and is not produced by, affiliated with, or endorsed by FS4Africa, IITA, PACA, or any other organisation referenced in the course.
+Course content is written to be conservative and checkable: general aflatoxin science reflects established public food safety literature. AflaLearn is an independent educational resource and is not produced by, affiliated with, or endorsed by FS4Africa, IITA, PACA, or any other organisation referenced in the course.
