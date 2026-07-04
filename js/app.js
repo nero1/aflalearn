@@ -23,7 +23,7 @@ function getUsers() {
   try { return JSON.parse(safeGet(USERS_KEY) || "[]"); } catch (e) { return []; }
 }
 function saveUsers(list) { safeSet(USERS_KEY, JSON.stringify(list)); }
-function getCurrentUser() { return safeGet(CURRENT_USER_KEY); }
+function getCurrentUser() { return anonymousSession ? "Guest" : safeGet(CURRENT_USER_KEY); }
 function setCurrentUser(name) { safeSet(CURRENT_USER_KEY, name); }
 function clearCurrentUser() { safeRemove(CURRENT_USER_KEY); }
 
@@ -42,6 +42,25 @@ function createOrSelectUser(name) {
 
 function logoutUser() {
   clearCurrentUser();
+  anonymousSession = false;
+  progressLoadedForSession = false;
+  renderLogin();
+}
+
+/* ================= ANONYMOUS MODE ================= */
+/* Anonymous sessions live only in memory: nothing is written to localStorage,
+   so progress and the session itself disappear on refresh or logout. */
+let anonymousSession = false;
+let progressLoadedForSession = false;
+function enterAnonymous() {
+  anonymousSession = true;
+  progressLoadedForSession = false;
+  navigate("#/");
+  render();
+}
+function exitAnonymous() {
+  anonymousSession = false;
+  progressLoadedForSession = false;
   renderLogin();
 }
 
@@ -57,6 +76,10 @@ function emptyProgress() {
 }
 let progress = {};
 function loadProgress() {
+  if (anonymousSession) {
+    if (!progressLoadedForSession) { progress = emptyProgress(); progressLoadedForSession = true; }
+    return;
+  }
   const user = getCurrentUser();
   if (!user) { progress = emptyProgress(); return; }
   try {
@@ -68,14 +91,14 @@ function loadProgress() {
   } catch (e) { progress = emptyProgress(); }
 }
 function saveProgress() {
+  if (anonymousSession) { refreshProgressUI(); return; }
   const user = getCurrentUser();
   if (!user) return;
   safeSet(progressKey(user), JSON.stringify(progress));
   refreshProgressUI();
 }
 function resetProgress() {
-  const user = getCurrentUser();
-  if (!user) return;
+  if (!anonymousSession && !getCurrentUser()) return;
   progress = emptyProgress();
   saveProgress();
 }
@@ -672,18 +695,21 @@ function renderSettings() {
         <p>The course draws on established public food safety science (from bodies such as WHO, FAO, IARC and Codex Alimentarius), publicly documented research programmes such as Aflasafe (led by IITA and USDA's Agricultural Research Service), and the FS4Africa project's own published materials, including its Applicants' Guide and public project record. AflaLearn is an independent educational resource. It is not produced by, affiliated with, or endorsed by FS4Africa, IITA, PACA or any other organisation referenced in these materials.</p>
         <h2>Built by</h2>
         <p>AflaLearn was built by <strong>NG44</strong>.</p>
+        <h2>Trying it out without an account</h2>
+        <p>From the login screen you can choose <strong>Enter as Anonymous</strong> to browse as a guest, with no username required. Guest mode is meant for demoing the course: nothing you do in it is saved, and it resets the moment you leave or refresh.</p>
       </div>
 
       <div class="settings-pane" id="settings-howto">
         <h2>How to use this course</h2>
         <ol class="steps-list">
-          <li><strong>Create or select a username on the login screen.</strong> No password, no email, just a name to keep your progress separate from anyone else using the same device.</li>
-          <li><strong>Pick a topic from the home screen.</strong> Topics are grouped by theme; there's no required order, though the topics roughly build on each other.</li>
+          <li><strong>Create or select a username on the login screen.</strong> No password, no email, just a name to keep your progress separate from anyone else using the same device. Alternatively, choose <strong>Enter as Anonymous</strong> to try the course as a guest, with no progress saved.</li>
+          <li><strong>Pick a topic from the home screen.</strong> Topics are grouped by theme; there's no required order, though the topics roughly build on each other. Click the AflaLearn name or logo in the top left at any time to jump back to the Topics screen.</li>
           <li><strong>Open a module and read through it.</strong> Each one is short on purpose: the idea, why it matters, and what to actually do about it.</li>
           <li><strong>Flip through the flashcards.</strong> Tap or click a card to flip it and check the answer, then use the arrows to move on.</li>
           <li><strong>Take the quiz, or skip it.</strong> Quizzes are entirely optional. Skipping still marks a module as visited on your home screen.</li>
           <li><strong>Switch usernames any time</strong> from this Settings page, or from the login screen next time you open AflaLearn.</li>
-          <li><strong>Your progress stays on this device</strong>, tied to your username. Nothing is sent anywhere, and nothing is shared between devices.</li>
+          <li><strong>Choose your look in Settings &gt; General.</strong> The theme selector switches between the Modern and Legacy styles, and the moon/sun icon (also in Settings) toggles light and dark mode.</li>
+          <li><strong>Your progress stays on this device</strong>, tied to your username. Nothing is sent anywhere, and nothing is shared between devices. Guest sessions are the exception: they are never saved.</li>
         </ol>
       </div>
 
@@ -707,20 +733,28 @@ function renderSettings() {
           <div class="toggle" id="toggleDark"></div>
         </div>
         <h2>Account</h2>
+        ${anonymousSession ? `
+        <div class="settings-row">
+          <div>
+            <div style="font-weight:600;">Browsing as a guest</div>
+            <div style="font-size:13px;color:var(--ink-faint);">Guest mode is for demoing the course. Progress isn't saved; create a username to keep it.</div>
+          </div>
+          <button class="btn ghost" id="settingsLogout">Create a username</button>
+        </div>` : `
         <div class="settings-row">
           <div>
             <div style="font-weight:600;">Signed in as ${escapeHtml(user || "")}</div>
             <div style="font-size:13px;color:var(--ink-faint);">Switch to a different username, or log out</div>
           </div>
           <button class="btn ghost" id="settingsLogout">Log out</button>
-        </div>
+        </div>`}
         <h2>Your data</h2>
         <div class="settings-row">
           <div>
             <div style="font-weight:600;">Reset all progress</div>
-            <div style="font-size:13px;color:var(--ink-faint);">Clears saved quiz scores and completion badges for this username, on this device</div>
+            <div style="font-size:13px;color:var(--ink-faint);">${anonymousSession ? "Not applicable in guest mode — nothing is saved to reset." : "Clears saved quiz scores and completion badges for this username, on this device"}</div>
           </div>
-          <button class="danger-btn" id="settingsReset">Reset progress</button>
+          <button class="danger-btn" id="settingsReset" ${anonymousSession ? "disabled" : ""}>Reset progress</button>
         </div>
       </div>
     </div>`;
@@ -749,9 +783,12 @@ function bindSettingsEvents(pendingTab) {
     syncPicker();
   }
   const logoutBtn = document.getElementById("settingsLogout");
-  if (logoutBtn) logoutBtn.addEventListener("click", () => { logoutUser(); navigate("#/"); renderLogin(); });
+  if (logoutBtn) logoutBtn.addEventListener("click", () => {
+    if (anonymousSession) { exitAnonymous(); return; }
+    logoutUser(); navigate("#/"); renderLogin();
+  });
   const resetBtn = document.getElementById("settingsReset");
-  if (resetBtn) resetBtn.addEventListener("click", () => {
+  if (resetBtn && !anonymousSession) resetBtn.addEventListener("click", () => {
     if (confirm("This clears all quiz scores and completion badges for this username on this device. Continue?")) {
       resetProgress();
       render();
@@ -802,9 +839,15 @@ function render() {
   else if (route.view === "module") html = renderModule(route.topicId, route.moduleId);
   else if (route.view === "settings") html = renderSettings();
 
+  if (anonymousSession) {
+    html = `<div class="anon-banner">Browsing as a guest — nothing you do here is saved. <button id="anonBannerExit">Create a username</button> to keep your progress.</div>` + html;
+  }
+
   app.innerHTML = html;
   updateHeaderNav(route);
   bindNavButtons(app);
+  const anonExit = document.getElementById("anonBannerExit");
+  if (anonExit) anonExit.addEventListener("click", exitAnonymous);
 
   if (route.view === "module") {
     buildFlashcards(route.moduleId);
@@ -850,7 +893,9 @@ function renderLogin() {
       <div class="field-row">
         <input type="text" id="newUserInput" placeholder="e.g. amara" maxlength="24" autocomplete="off"/>
         <button class="btn" id="newUserBtn">Continue</button>
-      </div>`;
+      </div>
+      <div class="anon-line"><button id="anonBtn" class="link-btn">Enter as Anonymous</button></div>
+      <div class="anon-notice">Guest mode skips creating a username. It's meant for trying out the course: your progress won't be saved.</div>`;
     document.querySelectorAll(".user-pill").forEach((p) => {
       p.addEventListener("click", () => {
         createOrSelectUser(p.getAttribute("data-user"));
@@ -864,6 +909,7 @@ function renderLogin() {
     };
     document.getElementById("newUserBtn").addEventListener("click", go);
     input.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+    document.getElementById("anonBtn").addEventListener("click", enterAnonymous);
   }
 
   const stillCurrent = getCurrentUser();
@@ -873,12 +919,15 @@ function renderLogin() {
         <div class="who"><span class="emoji">👋</span> You're logged in as ${escapeHtml(stillCurrent)}</div>
         <button class="btn full" id="continueBtn">Continue</button>
         <div class="switch-line">Not ${escapeHtml(stillCurrent)}? <button id="switchUserBtn">Log out and log in with your username</button></div>
+        <div class="anon-line"><button id="anonBtn" class="link-btn">Enter as Anonymous</button></div>
+        <div class="anon-notice">Guest mode skips creating a username. It's meant for trying out the course: your progress won't be saved.</div>
       </div>`;
     document.getElementById("continueBtn").addEventListener("click", () => { navigate("#/"); render(); });
     document.getElementById("switchUserBtn").addEventListener("click", () => {
       clearCurrentUser();
       renderFullForm();
     });
+    document.getElementById("anonBtn").addEventListener("click", enterAnonymous);
   } else {
     renderFullForm();
   }
@@ -889,6 +938,8 @@ function initHeader() {
   document.querySelectorAll(".navlink").forEach((btn) => {
     btn.addEventListener("click", () => navigate("#/" + (btn.getAttribute("data-view") === "home" ? "" : btn.getAttribute("data-view"))));
   });
+  const brand = document.querySelector(".brand");
+  if (brand) brand.addEventListener("click", () => navigate("#/"));
   document.getElementById("themeToggle").addEventListener("click", toggleTheme);
   document.getElementById("hamburgerBtn").addEventListener("click", () => {
     document.getElementById("mobileNav").classList.toggle("open");
