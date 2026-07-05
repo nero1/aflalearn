@@ -1,8 +1,11 @@
 # AflaLearn
 
-A free, plain-language course on aflatoxin: what it is, why it matters for health, income and trade, and what prevention efforts, including FS4Africa, are doing about it. Built for non-technical learners.
+A free, open, online course on aflatoxin: what it is, why it matters for health, income and trade, and what prevention efforts, including FS4Africa, are doing about it. Built for non-technical learners.
 
 Static site, no build step, no backend. Accounts are just a username, stored in `localStorage`, so multiple people can use the same browser and keep separate progress.
+
+## Official Link
+https://aflalearn.pages.dev
 
 ## Structure
 
@@ -32,4 +35,4 @@ This is a fully static site with hash-based routing, so no server rewrites or bu
 
 ## Notes on content
 
-Course content is written to be conservative and checkable: general aflatoxin science reflects established public food safety literature. AflaLearn is an independent educational resource and is not produced by, affiliated with, or endorsed by FS4Africa, IITA, PACA, or any other organisation referenced in the course.
+Course content is written to be conservative and checkable: general aflatoxin science reflects established public food safety literature. AflaLearn is an independent, open-source educational resource.
