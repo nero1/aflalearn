@@ -4,7 +4,7 @@ A free, open, online course on aflatoxin: what it is, why it matters for health,
 
 Static site, no build step, no backend. Accounts are just a username, stored in `localStorage`, so multiple people can use the same browser and keep separate progress.
 
-## Official Link
+### Official Link
 https://aflalearn.pages.dev
 
 ## Structure
