@@ -1104,6 +1104,12 @@ function initHeader() {
     navigate("#/");
     renderLogin();
   });
+  document.getElementById("desktopLogoutBtn").addEventListener("click", () => {
+    if (guestSession) { exitGuest(); return; }
+    logoutUser();
+    navigate("#/");
+    renderLogin();
+  });
   const chip = document.getElementById("userChip");
   if (chip) chip.addEventListener("click", () => navigate("#/settings"));
 }
